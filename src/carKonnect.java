@@ -2,22 +2,23 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
-class Car {
-    private String carId;
-    private String brand;
-    private String model;
-    private double basePricePerDay;
-    private boolean isAvailable;
+abstract class Vehicle {
+    protected String vehicleId;
+    protected String brand;
+    protected String model;
+    protected double basePricePerDay;
+    protected boolean isAvailable;
 
-    public Car(String carId, String brand, String model, double basePricePerDay) {
-        this.carId = carId;
+    public Vehicle(String vehicleId, String brand, String model, double basePricePerDay) {
+        this.vehicleId = vehicleId;
         this.brand = brand;
         this.model = model;
         this.basePricePerDay = basePricePerDay;
         this.isAvailable = true;
     }
-    public String getCarId() {
-        return carId;
+
+    public String getVehicleId() {
+        return vehicleId;
     }
 
     public String getBrand() {
@@ -28,10 +29,6 @@ class Car {
         return model;
     }
 
-    public double calculatePrice(int rentalDays) {
-        return basePricePerDay * rentalDays;
-    }
-
     public boolean isAvailable() {
         return isAvailable;
     }
@@ -40,10 +37,37 @@ class Car {
         isAvailable = false;
     }
 
-    public void returnCar() {
+    public void returnVehicle() {
         isAvailable = true;
     }
+
+    // Abstract method for calculating price
+    public abstract double calculatePrice(int rentalDays);
+
+    @Override
+    public String toString() {
+        return "Vehicle ID: " + vehicleId + ", Brand: " + brand + ", Model: " + model;
+    }
 }
+
+class Car extends Vehicle {
+    public Car(String vehicleId, String brand, String model, double basePricePerDay) {
+        super(vehicleId, brand, model, basePricePerDay);
+    }
+
+    @Override
+    public double calculatePrice(int rentalDays) {
+        // Car-specific pricing logic
+        return basePricePerDay * rentalDays;
+    }
+
+    @Override
+    public String toString() {
+        return super.toString() + ", Type: Car";
+    }
+}
+
+
 
 class Customer {
     private String customerId;
@@ -64,18 +88,18 @@ class Customer {
 }
 
 class Rental {
-    private Car car;
+    private Vehicle vehicle;
     private Customer customer;
     private int days;
 
-    public Rental(Car car, Customer customer, int days) {
-        this.car = car;
+    public Rental(Vehicle vehicle, Customer customer, int days) {
+        this.vehicle = vehicle;
         this.customer = customer;
         this.days = days;
     }
 
-    public Car getCar() {
-        return car;
+    public Vehicle getVehicle() {
+        return vehicle;
     }
 
     public Customer getCustomer() {
@@ -88,49 +112,18 @@ class Rental {
 }
 
 class CarRentalSystem {
-    private List<Car> cars;
+    private List<Vehicle> vehicles;
     private List<Customer> customers;
     private List<Rental> rentals;
 
     public CarRentalSystem() {
-        cars = new ArrayList<>();
+        vehicles = new ArrayList<>();
         customers = new ArrayList<>();
         rentals = new ArrayList<>();
     }
 
-    public void addCar(Car car) {
-        cars.add(car);
-    }
-
-    public void addCustomer(Customer customer) {
-        customers.add(customer);
-    }
-
-    public void rentCar(Car car, Customer customer, int days) {
-        if (car.isAvailable()) {
-            car.rent();
-            rentals.add(new Rental(car, customer, days));
-
-        } else {
-            System.out.println("Car is not available for rent.");
-        }
-    }
-
-    public void returnCar(Car car) {
-        car.returnCar();
-        Rental rentalToRemove = null;
-        for (Rental rental : rentals) {
-            if (rental.getCar() == car) {
-                rentalToRemove = rental;
-                break;
-            }
-        }
-        if (rentalToRemove != null) {
-            rentals.remove(rentalToRemove);
-
-        } else {
-            System.out.println("Car was not rented.");
-        }
+    public void addVehicle(Vehicle vehicle) {
+        vehicles.add(vehicle);
     }
 
     public void menu() {
@@ -152,9 +145,12 @@ class CarRentalSystem {
                 String customerName = scanner.nextLine();
 
                 System.out.println("\nAvailable Cars:");
-                for (Car car : cars) {
-                    if (car.isAvailable()) {
-                        System.out.println(car.getCarId() + " - " + car.getBrand() + " " + car.getModel());
+                for (Vehicle vehicle : vehicles) {
+                    if (vehicle instanceof Car) {
+                        Car car = (Car) vehicle;
+                        if (car.isAvailable()) {
+                            System.out.println(car.getVehicleId() + " - " + car.getBrand() + " " + car.getModel());
+                        }
                     }
                 }
 
@@ -166,13 +162,16 @@ class CarRentalSystem {
                 scanner.nextLine(); // Consume newline
 
                 Customer newCustomer = new Customer("CUS" + (customers.size() + 1), customerName);
-                addCustomer(newCustomer);
+                customers.add(newCustomer);
 
                 Car selectedCar = null;
-                for (Car car : cars) {
-                    if (car.getCarId().equals(carId) && car.isAvailable()) {
-                        selectedCar = car;
-                        break;
+                for (Vehicle vehicle : vehicles) {
+                    if (vehicle instanceof Car) {
+                        Car car = (Car) vehicle;
+                        if (car.getVehicleId().equals(carId) && car.isAvailable()) {
+                            selectedCar = car;
+                            break;
+                        }
                     }
                 }
 
@@ -189,7 +188,9 @@ class CarRentalSystem {
                     String confirm = scanner.nextLine();
 
                     if (confirm.equalsIgnoreCase("Y")) {
-                        rentCar(selectedCar, newCustomer, rentalDays);
+                        selectedCar.rent();
+                        Rental newRental = new Rental(selectedCar, newCustomer, rentalDays);
+                        rentals.add(newRental);
                         System.out.println("\nCar rented successfully.");
                     } else {
                         System.out.println("\nRental canceled.");
@@ -203,24 +204,27 @@ class CarRentalSystem {
                 String carId = scanner.nextLine();
 
                 Car carToReturn = null;
-                for (Car car : cars) {
-                    if (car.getCarId().equals(carId) && !car.isAvailable()) {
-                        carToReturn = car;
-                        break;
+                for (Vehicle vehicle : vehicles) {
+                    if (vehicle instanceof Car) {
+                        Car car = (Car) vehicle;
+                        if (car.getVehicleId().equals(carId) && !car.isAvailable()) {
+                            carToReturn = car;
+                            break;
+                        }
                     }
                 }
 
                 if (carToReturn != null) {
                     Customer customer = null;
                     for (Rental rental : rentals) {
-                        if (rental.getCar() == carToReturn) {
+                        if (rental.getVehicle() == carToReturn) {
                             customer = rental.getCustomer();
                             break;
                         }
                     }
 
                     if (customer != null) {
-                        returnCar(carToReturn);
+                        carToReturn.returnVehicle();
                         System.out.println("Car returned successfully by " + customer.getName());
                     } else {
                         System.out.println("Car was not rented or rental information is missing.");
@@ -238,6 +242,8 @@ class CarRentalSystem {
         System.out.println("\nThank you for using the Car Rental System!");
     }
 
+
+
 }
 public class carKonnect {
     public static void main(String[] args) {
@@ -246,12 +252,10 @@ public class carKonnect {
         Car car1 = new Car("C001", "Toyota", "Camry", 60.0); // Different base price per day for each car
         Car car2 = new Car("C002", "Honda", "Accord", 70.0);
         Car car3 = new Car("C003", "Mahindra", "Thar", 150.0);
-        rentalSystem.addCar(car1);
-        rentalSystem.addCar(car2);
-        rentalSystem.addCar(car3);
+        rentalSystem.addVehicle(car1);
+        rentalSystem.addVehicle(car2);
+        rentalSystem.addVehicle(car3);
 
         rentalSystem.menu();
     }
 }
-
-
